@@ -1,0 +1,31 @@
+{
+  "adminUser": {
+    "username": "master",
+    "password": "Password@123"
+  },
+  "testCategory": {
+    "name": "Test Category E2E",
+    "description": "Created by Cypress E2E tests"
+  },
+  "testItem": {
+    "plu_code": "E2E-PLU-001",
+    "name": "E2E Test Item",
+    "price": 500,
+    "cost_price": 400,
+    "stock_quantity": 100,
+    "unit": "pcs"
+  },
+  "testCustomer": {
+    "name": "E2E Test Customer",
+    "email": "e2e-customer@test.com",
+    "phone": "+94700000001"
+  },
+  "testUser": {
+    "username": "e2e_cashier",
+    "email": "e2e_cashier@test.com",
+    "password": "E2E@Cashier12",
+    "role": "cashier",
+    "first_name": "E2E",
+    "last_name": "Cashier"
+  }
+}

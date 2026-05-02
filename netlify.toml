@@ -1,0 +1,21 @@
+[build]
+  # postinstall automatically runs "prisma generate", but we explicitly run it to be safe
+  command = "prisma generate && npm run build"
+  # Next.js native build directory
+  publish = ".next"
+
+[build.environment]
+  # Force Netlify to use Node 24 (standard for modern Next.js apps)
+  NODE_VERSION = "24"
+  NEXT_PRIVATE_STANDALONE = "true"
+
+[[plugins]]
+  # Helps Netlify cache Next.js builds and handle API routes automatically
+  package = "@netlify/plugin-nextjs"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

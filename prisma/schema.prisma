@@ -1,0 +1,438 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  admin
+  cashier
+  supervisor
+  master_admin
+}
+
+enum BillStatus {
+  pending
+  completed
+  returned
+  cancelled
+}
+
+enum DiscountType {
+  percentage
+  fixed
+}
+
+enum MovementType {
+  in
+  out
+  return_item
+  damage
+  lost
+}
+
+enum ReferenceType {
+  bill
+  manual
+  adjustment
+}
+
+enum BackupType {
+  automatic
+  manual
+}
+
+enum SettingType {
+  string
+  integer
+  boolean
+  json
+}
+
+model User {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username            String    @unique @db.VarChar(100)
+  email               String    @unique @db.VarChar(255)
+  password            String    @db.VarChar(255)
+  role                UserRole  @default(cashier)
+  firstName           String    @map("first_name") @db.VarChar(100)
+  lastName            String    @map("last_name") @db.VarChar(100)
+  isActive            Boolean   @default(true) @map("is_active")
+  passwordChangedAt   DateTime? @map("password_changed_at")
+  passwordExpiresAt   DateTime? @map("password_expires_at")
+  mustChangePassword  Boolean   @default(true) @map("must_change_password")
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until")
+
+  // Two-Factor Authentication
+  twoFactorSecret      String? @map("two_factor_secret") @db.Text
+  twoFactorEnabled     Boolean @default(false) @map("two_factor_enabled")
+  twoFactorBackupCodes String? @map("two_factor_backup_codes") @db.Text
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  bills             Bill[]           @relation("StaffBills")
+  authorizedReturns Bill[]           @relation("ReturnAuthorizer")
+  stockMovements    StockMovement[]
+  backups           Backup[]
+  loginSessions     LoginSession[]
+  tokenBlacklist    TokenBlacklist[]
+  securityEvents    SecurityEvent[]
+  auditLogs         AuditLog[]
+
+  @@index([username])
+  @@index([email])
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String    @unique @db.VarChar(255)
+  description String?   @db.Text
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  items      Item[]
+  promotions Promotion[]
+
+  @@index([name])
+  @@index([deletedAt])
+  @@map("categories")
+}
+
+model Item {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pluCode            String    @unique @map("plu_code") @db.VarChar(50)
+  name               String    @db.VarChar(255)
+  description        String?   @db.Text
+  categoryId         String    @map("category_id") @db.Uuid
+  barcode            String?   @unique @db.VarChar(100)
+  qrCode             String?   @unique @map("qr_code") @db.VarChar(100)
+  price              Decimal   @default(0.00) @db.Decimal(10, 2)
+  costPrice          Decimal   @default(0.00) @map("cost_price") @db.Decimal(10, 2)
+  unit               String    @default("pcs") @db.VarChar(50)
+  stockQuantity      Decimal   @default(0.000) @map("stock_quantity") @db.Decimal(10, 3)
+  totalQuantity      Decimal   @default(0.000) @map("total_quantity") @db.Decimal(10, 3)
+  sellQuantity       Decimal   @default(0.000) @map("sell_quantity") @db.Decimal(10, 3)
+  returnQuantity     Decimal   @default(0.000) @map("return_quantity") @db.Decimal(10, 3)
+  damageQuantity     Decimal   @default(0.000) @map("damage_quantity") @db.Decimal(10, 3)
+  lostQuantity       Decimal   @default(0.000) @map("lost_quantity") @db.Decimal(10, 3)
+  lowStockThreshold  Decimal   @default(10.000) @map("low_stock_threshold") @db.Decimal(10, 3)
+  isActive           Boolean   @default(true) @map("is_active")
+  hasDiscount        Boolean   @default(false) @map("has_discount")
+  discountPercentage Decimal   @default(0.00) @map("discount_percentage") @db.Decimal(5, 2)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  billItems      BillItem[]
+  stockMovements StockMovement[]
+  promotions     Promotion[]
+
+  @@index([pluCode])
+  @@index([barcode])
+  @@index([categoryId])
+  @@index([deletedAt])
+  @@map("items")
+}
+
+model Promotion {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemId        String?      @map("item_id") @db.Uuid
+  categoryId    String?      @map("category_id") @db.Uuid
+  name          String       @db.VarChar(255)
+  description   String?      @db.Text
+  discountType  DiscountType @map("discount_type")
+  discountValue Decimal      @map("discount_value") @db.Decimal(10, 2)
+  startDate     DateTime     @map("start_date")
+  endDate       DateTime     @map("end_date")
+  isActive      Boolean      @default(true) @map("is_active")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  deletedAt     DateTime?    @map("deleted_at")
+
+  item     Item?     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([categoryId])
+  @@index([startDate, endDate])
+  @@index([deletedAt])
+  @@map("promotions")
+}
+
+model Customer {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @db.VarChar(255)
+  email     String?   @unique @db.VarChar(255)
+  phone          String?   @unique @db.VarChar(20)
+  loyaltyPoints  Int       @default(0) @map("loyalty_points")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  bills Bill[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([deletedAt])
+  @@map("customers")
+}
+
+model Bill {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billNumber         String     @unique @map("bill_number") @db.VarChar(50)
+  customerId         String?    @map("customer_id") @db.Uuid
+  customerName       String     @default("Customer") @map("customer_name") @db.VarChar(255)
+  customerEmail      String?    @map("customer_email") @db.VarChar(255)
+  staffId            String     @map("staff_id") @db.Uuid
+  staffName          String     @map("staff_name") @db.VarChar(255)
+  startTime          DateTime   @map("start_time")
+  endTime            DateTime?  @map("end_time")
+  subtotal           Decimal    @default(0.00) @db.Decimal(10, 2)
+  totalDiscount      Decimal    @default(0.00) @map("total_discount") @db.Decimal(10, 2)
+  vatAmount          Decimal    @default(0.00) @map("vat_amount") @db.Decimal(10, 2)
+  ssclAmount         Decimal    @default(0.00) @map("sscl_amount") @db.Decimal(10, 2)
+  taxTotal           Decimal    @default(0.00) @map("tax_total") @db.Decimal(10, 2)
+  totalAmount        Decimal    @default(0.00) @map("total_amount") @db.Decimal(10, 2)
+  paidAmount         Decimal    @default(0.00) @map("paid_amount") @db.Decimal(10, 2)
+  balance            Decimal    @default(0.00) @db.Decimal(10, 2)
+  status             BillStatus @default(pending)
+  returnReason       String?    @map("return_reason") @db.Text
+  returnAuthorizedBy String?    @map("return_authorized_by") @db.Uuid
+  returnAuthorizedAt DateTime?  @map("return_authorized_at")
+  remarks            String?    @db.Text
+  isPrinted          Boolean    @default(false) @map("is_printed")
+  isEmailSent        Boolean    @default(false) @map("is_email_sent")
+  earnedPoints       Int        @default(0) @map("earned_points")
+  pointsRedeemed     Int        @default(0) @map("points_redeemed")
+  pointsValue        Decimal    @default(0.00) @map("points_value") @db.Decimal(10, 2)
+  pointsAuthorizedBy String?    @map("points_authorized_by")
+  pointsAuthorizedAt DateTime?  @map("points_authorized_at")
+  totalPointsAfter   Int        @default(0) @map("total_points_after")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+  deletedAt          DateTime?  @map("deleted_at")
+
+  customer         Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  staff            User       @relation("StaffBills", fields: [staffId], references: [id], onDelete: Restrict)
+  returnAuthorizer User?      @relation("ReturnAuthorizer", fields: [returnAuthorizedBy], references: [id], onDelete: SetNull)
+  billItems        BillItem[]
+
+  @@index([billNumber])
+  @@index([customerId])
+  @@index([staffId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("bills")
+}
+
+model BillItem {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billId             String   @map("bill_id") @db.Uuid
+  itemId             String   @map("item_id") @db.Uuid
+  pluCode            String   @map("plu_code") @db.VarChar(50)
+  itemName           String   @map("item_name") @db.VarChar(255)
+  quantity           Decimal  @default(1.000) @db.Decimal(10, 3)
+  unit               String   @default("pcs") @db.VarChar(50)
+  unitPrice          Decimal  @map("unit_price") @db.Decimal(10, 2)
+  actualPrice        Decimal  @map("actual_price") @db.Decimal(10, 2)
+  discount           Decimal  @default(0.00) @db.Decimal(10, 2)
+  discountPercentage Decimal  @default(0.00) @map("discount_percentage") @db.Decimal(5, 2)
+  subtotal           Decimal  @db.Decimal(10, 2)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  item Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([billId])
+  @@index([itemId])
+  @@map("bill_items")
+}
+
+model StockMovement {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemId        String         @map("item_id") @db.Uuid
+  movementType  MovementType   @map("movement_type")
+  quantity      Decimal        @db.Decimal(10, 3)
+  referenceType ReferenceType? @map("reference_type")
+  referenceId   String?        @map("reference_id") @db.Uuid
+  notes         String?        @db.Text
+  movementDate  DateTime       @map("movement_date")
+  createdBy     String         @map("created_by") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  item    Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  creator User @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([itemId])
+  @@index([movementType])
+  @@index([movementDate])
+  @@index([referenceType, referenceId])
+  @@map("stock_movements")
+}
+
+model Setting {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String      @unique @db.VarChar(100)
+  value       String?     @db.Text
+  type        SettingType @default(string)
+  description String?     @db.Text
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@index([key])
+  @@map("settings")
+}
+
+model DeviceProfile {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deviceIdentifier String   @unique @map("device_identifier") @db.VarChar(255)
+  name             String   @default("New Device") @db.VarChar(100)
+  defaultPrinter   String   @default("thermal") @map("default_printer") @db.VarChar(50)
+  defaultScanner   String   @default("keyboard") @map("default_scanner") @db.VarChar(50)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([deviceIdentifier])
+  @@map("device_profiles")
+}
+
+model Backup {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  filename   String     @db.VarChar(255)
+  filePath   String     @map("file_path") @db.VarChar(512) @default("")
+  fileSize   BigInt     @map("file_size")
+  backupType BackupType @map("backup_type")
+  createdBy  String?    @map("created_by") @db.Uuid
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  creator User? @relation(fields: [createdBy], references: [id])
+
+  @@index([backupType])
+  @@index([createdAt])
+  @@map("backups")
+}
+
+model LoginSession {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  sessionToken   String    @unique @map("session_token") @db.VarChar(255)
+  ipAddress      String    @map("ip_address") @db.VarChar(45)
+  userAgent      String    @default("") @map("user_agent") @db.Text
+  browser        String    @default("Unknown") @db.VarChar(100)
+  os             String    @default("Unknown") @db.VarChar(100)
+  device         String    @default("Unknown") @db.VarChar(100)
+  city           String    @default("Unknown") @db.VarChar(100)
+  country        String    @default("Unknown") @db.VarChar(100)
+  region         String    @default("Unknown") @db.VarChar(100)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  lastActivityAt DateTime  @default(now()) @map("last_activity_at")
+  expiresAt      DateTime  @map("expires_at")
+  isActive       Boolean   @default(true) @map("is_active")
+  revokedAt      DateTime? @map("revoked_at")
+  revokeReason   String?   @map("revoke_reason") @db.Text
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@index([expiresAt])
+  @@map("login_sessions")
+}
+
+model TokenBlacklist {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  userId    String   @map("user_id") @db.Uuid
+  reason    String   @default("logout") @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("token_blacklist")
+}
+
+model SecurityEvent {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  eventType String   @map("event_type") @db.VarChar(100)
+  ipAddress String   @map("ip_address") @db.VarChar(45)
+  userAgent String   @default("") @map("user_agent") @db.Text
+  details   String?  @db.Text
+  severity  String   @default("low") @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, eventType])
+  @@index([createdAt])
+  @@map("security_events")
+}
+
+model AuditLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  action    String   @db.VarChar(100)
+  entity    String   @db.VarChar(100)
+  entityId  String?  @map("entity_id") @db.VarChar(100)
+  details   String?  @db.Text
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  userAgent String?  @map("user_agent") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  level     String   @db.VarChar(20)
+  category  String   @db.VarChar(100)
+  action    String   @db.VarChar(255)
+  message   String   @db.Text
+  metadata  String?  @db.Text
+  userId    String?  @map("user_id") @db.Uuid
+  ipAddress String?  @map("ip_address") @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([level])
+  @@index([category])
+  @@index([createdAt])
+  @@map("system_logs")
+}
+
+model SystemState {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  isLocked       Boolean  @default(false) @map("is_locked")
+  lockReason     String?  @map("lock_reason") @db.Text
+  lockedBy       String?  @map("locked_by") @db.Uuid
+  lockedAt       DateTime? @map("locked_at")
+  lastCheckinAt  DateTime @default(now()) @map("last_checkin_at")
+  deadmanDays    Int      @default(72) @map("deadman_days")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("system_state")
+}
