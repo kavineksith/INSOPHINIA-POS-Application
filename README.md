@@ -62,8 +62,8 @@ Every shop — from a small grocery store to a busy restaurant — needs a relia
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/kavineksith/insophinia-web-pos-application.git
-cd insophinia-web-pos-application
+git clone https://github.com/kavineksith/INSOPHINIA-POS-Application.git
+cd INSOPHINIA-POS-Application
 
 # 2. Install dependencies
 npm install
