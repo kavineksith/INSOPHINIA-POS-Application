@@ -23,7 +23,6 @@ Beyond full-stack web development, I also write automation scripts for IT Suppor
 
 **If you have freelance projects or need customized solutions, feel free to contact me:**
 - 💼 **LinkedIn**: [Kavin Eksith](https://www.linkedin.com/in/kavin-eksith/)
-- 📧 **Email**: insophiniasolutions@gmail.com
 
 ---
 
@@ -183,7 +182,6 @@ If this project helps your business, please consider giving it a ⭐ on GitHub! 
 And remember, if you want support to configure this system for your business, or if you need a freelance web developer for your next big project, **reach out** and help a student finish university:
 
 - 💼 **LinkedIn**: [Kavin Eksith](https://www.linkedin.com/in/kavin-eksith/)
-- 📧 **Email**: insophiniasolutions@gmail.com
 
 ---
 
