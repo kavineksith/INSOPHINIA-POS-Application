@@ -12,11 +12,11 @@
 
 ## 🌟 The Developer's Story
 
-Hello! I am Kavin Eksith. I started my journey as a freelance web developer in May 2025 without any real-world experience, but since then, I have successfully delivered several real-world projects. My primary goal was simply to help small businesses create simple, modern websites so their customers could easily view products and get in touch. Over time, I noticed that these small entrepreneurs heavily relied on platforms like WhatsApp, Facebook, and Instagram to provide services, reach customers, and manage insights. I wanted to give them a little more help.
+Hello! I am Kavin Eksith. Between **January and April**, I built this project as a way to sharpen my real-world development skills and create something meaningful for my portfolio. My primary goal was to help small businesses create simple, modern digital tools so their customers could easily view products and get in touch. Over time, I noticed that these small entrepreneurs heavily relied on platforms like WhatsApp, Facebook, and Instagram to provide services, reach customers, and manage insights. I wanted to give them a little more help — and give myself hands-on experience building something production-grade along the way.
 
-**This project is the result of 5 months of dedicated work.** I created this fully open-source, web-based POS system so that small businesses can modernly manage their shops without paying hefty software fees. You can run it two ways: on managed cloud hosting like **Vercel** and **Supabase** for zero-ops convenience, or fully **self-hosted with Docker** on your own hardware for complete data ownership and no internet dependency for core operations.
+**This project is the result of dedicated, focused work over that period.** I created this fully open-source, web-based POS system so that small businesses can modernly manage their shops without paying hefty software fees, while it also serves as a showcase of my ability to design and ship a complete, real-world application. By utilizing web hosting services like **Vercel** and **Supabase**, businesses can dramatically reduce the waste associated with expensive legacy systems.
 
-Currently, I am a final-year university student, but I had to pause my studies due to economic problems. I do freelance development as a side job to earn money and eventually complete my degree. 
+Currently, I am a final-year university student, but I had to pause my studies due to economic problems. I'm continuing to build practical projects like this one to grow my experience and work toward opportunities in software development.
 
 **Explore my other work!**
 Beyond full-stack web development, I also write automation scripts for IT Support, Networking, and Cyber Security. If you check out my other repositories on GitHub, you will find a variety of multi-purpose Python packages designed to automate repetitive tasks and secure environments. Please explore my profile to see these projects!
