@@ -1,0 +1,6 @@
+-- Runs once, automatically, the first time the db container's data volume
+-- is created. Prisma's own migrations (prisma/migrations) handle your
+-- actual schema — this file is only for extensions/setup Prisma doesn't
+-- manage. Currently empty; add extensions here if a future migration
+-- needs one, e.g.:
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

@@ -8,6 +8,7 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   turbopack: {},
   transpilePackages: ['otplib', '@otplib/plugin-base32-scure', '@scure/base', '@otplib/plugin-crypto-noble', '@noble/hashes'],
   env: {

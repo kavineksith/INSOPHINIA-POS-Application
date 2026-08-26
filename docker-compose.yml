@@ -1,0 +1,172 @@
+# ═══════════════════════════════════════════════════════════════
+# INSOPHINIA POS — Self-hosted Docker Stack
+# ═══════════════════════════════════════════════════════════════
+# Containers:
+#   1. db        - PostgreSQL 16 (your database, replaces Supabase Postgres)
+#   2. storage   - MinIO (S3-compatible object storage, replaces Supabase S3)
+#   3. app       - The Next.js web application
+#   + proxy      - Nginx: HTTPS termination + LAN-only gateway
+#                  (added so devices on your network can reach the app over
+#                   HTTPS at a single address; it is the only container
+#                   exposed to the host network)
+#
+# Network layout:
+#   - "internal" network: db, storage, app talk to each other here.
+#     Not published to the host — nothing on it is reachable from outside
+#     this Docker host.
+#   - "proxy" network: only nginx + app share this; app is what nginx
+#     forwards HTTPS traffic to.
+#   - nginx is bound to your machine's LAN interface only (see below),
+#     so devices on the same network can reach it, but the internet cannot,
+#     as long as your router isn't port-forwarding to this host.
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: insophinia_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-insophinia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-insophinia_pos}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Not published to host on purpose. Only reachable by other containers
+    # on the "internal" network. Uncomment below only for local debugging
+    # with a DB GUI, and remove it again afterwards:
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+
+  storage:
+    image: minio/minio:latest
+    container_name: insophinia_storage
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+    volumes:
+      - storage_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # MinIO's own admin console (9001) is handy for browsing backups from
+    # your LAN — bound to the host's LAN-facing IP only, never 0.0.0.0.
+    ports:
+      - "${LAN_BIND_IP:-0.0.0.0}:9001:9001"
+
+  # One-shot helper that creates the backup bucket on first startup.
+  storage-init:
+    image: minio/mc:latest
+    container_name: insophinia_storage_init
+    depends_on:
+      storage:
+        condition: service_healthy
+    networks:
+      - internal
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      BUCKET_NAME: ${BUCKET_NAME:-pos_backups}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://storage:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+      mc mb --ignore-existing local/$$BUCKET_NAME &&
+      echo 'Bucket ready.'
+      "
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: insophinia_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+    environment:
+      # --- Database (points at the db container over the internal network) ---
+      DATABASE_URL: postgresql://${POSTGRES_USER:-insophinia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-insophinia_pos}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-insophinia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-insophinia_pos}
+
+      # --- Storage (points at the MinIO container, S3-compatible) ---
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_REGION: us-east-1
+      S3_ENDPOINT: http://storage:9000
+      BUCKET_NAME: ${BUCKET_NAME:-pos_backups}
+
+      # --- App / auth / security (loaded from your .env, see .env.example) ---
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-3600}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+      PASSWORD_EXPIRY_DAYS: ${PASSWORD_EXPIRY_DAYS:-7}
+      TWO_FACTOR_ENCRYPTION_KEY: ${TWO_FACTOR_ENCRYPTION_KEY}
+      LOG_ENCRYPTION_KEY: ${LOG_ENCRYPTION_KEY}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      REQUIRE_IP_PINNING: ${REQUIRE_IP_PINNING:-false}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USERNAME: ${EMAIL_USERNAME:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      MAX_REQUEST_BODY_SIZE: ${MAX_REQUEST_BODY_SIZE:-1048576}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      CRON_SECRET: ${CRON_SECRET}
+    networks:
+      - internal
+      - proxy
+    # Not published directly — only nginx talks to it, over the "proxy" network.
+
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: insophinia_proxy
+    restart: unless-stopped
+    depends_on:
+      - app
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+    networks:
+      - proxy
+    ports:
+      # Bind to the host's LAN IP only (set LAN_BIND_IP in .env, e.g.
+      # 192.168.1.50). Leaving this as 0.0.0.0 exposes it on every
+      # interface, including anything facing the internet if your router
+      # forwards the port — set LAN_BIND_IP explicitly for real LAN-only
+      # access. See README-DOCKER.md for how to find your LAN IP.
+      - "${LAN_BIND_IP:-0.0.0.0}:443:443"
+      # Plain HTTP is only used to redirect to HTTPS, same binding rule.
+      - "${LAN_BIND_IP:-0.0.0.0}:80:80"
+
+networks:
+  internal:
+    driver: bridge
+    internal: true   # no route to the outside world for db/storage traffic
+  proxy:
+    driver: bridge
+
+volumes:
+  db_data:
+  storage_data:

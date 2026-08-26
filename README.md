@@ -14,7 +14,7 @@
 
 Hello! I am Kavin Eksith. I started my journey as a freelance web developer in May 2025 without any real-world experience, but since then, I have successfully delivered several real-world projects. My primary goal was simply to help small businesses create simple, modern websites so their customers could easily view products and get in touch. Over time, I noticed that these small entrepreneurs heavily relied on platforms like WhatsApp, Facebook, and Instagram to provide services, reach customers, and manage insights. I wanted to give them a little more help.
 
-**This project is the result of 5 months of dedicated work.** I created this fully open-source, web-based POS system so that small businesses can modernly manage their shops without paying hefty software fees. By utilizing web hosting services like **Vercel** and **Supabase**, businesses can dramatically reduce the waste associated with expensive legacy systems.
+**This project is the result of 5 months of dedicated work.** I created this fully open-source, web-based POS system so that small businesses can modernly manage their shops without paying hefty software fees. You can run it two ways: on managed cloud hosting like **Vercel** and **Supabase** for zero-ops convenience, or fully **self-hosted with Docker** on your own hardware for complete data ownership and no internet dependency for core operations.
 
 Currently, I am a final-year university student, but I had to pause my studies due to economic problems. I do freelance development as a side job to earn money and eventually complete my degree. 
 
@@ -32,13 +32,14 @@ Every shop — from a small grocery store to a busy restaurant — needs a relia
 
 - 🆓 **100% Free & Open Source** — No monthly fees, Apache 2.0 licensed.
 - 🖥️ **Professional UI** — Clean, modern interface designed for fast checkout.
-- ☁️ **Affordable Cloud Infrastructure** — Hosted on Vercel with a Supabase PostgreSQL database.
+- ☁️ **Flexible Infrastructure** — Deploy on Vercel + Supabase for managed hosting, **or self-host the entire stack with Docker** (Postgres + S3-compatible storage + app, all on your own network).
 - 🔒 **Enterprise Security** — AES-256 encryption, 2FA, kill switch, audit logs.
+- 🌐 **HTTPS on Your Own Network** — Self-hosted deployments get automatic HTTPS with a local reverse proxy, restricted to devices on your LAN.
 - 🖨️ **Plug & Play Hardware** — USB/Bluetooth barcode scanners and thermal printers.
 - 📸 **Camera Scanning** — Use your phone's camera as a barcode scanner.
 - 📲 **WhatsApp Receipts** — Send professional bills directly to customers.
 - ⭐ **Loyalty Points** — Built-in customer rewards program.
-- 💾 **Secure Backups** — State-of-the-art AWS S3 bucket integration for automated, encrypted database backups.
+- 💾 **Secure Backups** — Automated, encrypted database backups to any S3-compatible storage (AWS S3, or a self-hosted MinIO bucket).
 - 🧾 **Tax Automation** — Configurable tax rates (VAT/Levy).
 - 🧪 **Quality Assured** — Comprehensive test cases powered by GitHub Actions workflows.
 
@@ -46,13 +47,25 @@ Every shop — from a small grocery store to a busy restaurant — needs a relia
 
 ## 🚀 Quick Start
 
-### Prerequisites
+INSOPHINIA supports two deployment paths. Pick whichever fits your business:
+
+| | ☁️ Managed Cloud (Vercel + Supabase) | 🐳 Self-Hosted (Docker) |
+|---|---|---|
+| Best for | Fastest setup, zero server maintenance | Full data ownership, no third-party cloud dependency, works on a local shop network |
+| Database | Supabase PostgreSQL | Self-hosted PostgreSQL container |
+| Backup storage | AWS S3 / Supabase S3 | Self-hosted MinIO container (S3-compatible) |
+| HTTPS | Handled automatically by Vercel | Local Nginx reverse proxy with a self-signed cert |
+| Internet required for core POS use | Yes | No — only for optional features like emailing receipts |
+
+---
+
+### Option A — Managed Cloud (Vercel + Supabase)
+
+**Prerequisites**
 - **Node.js** 18+ and **npm**
 - **Supabase** account (for PostgreSQL database)
 - **AWS S3** bucket (for backups)
 - **Vercel** account (for best deployment experience)
-
-### Setup
 
 **Important Supabase & AWS Configuration:**
 - When creating your Supabase PostgreSQL project, **uncheck/disable the "Public Accessible" option** (we don't need it for server-side operations and disabling it improves security).
@@ -81,8 +94,40 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+---
+
+### Option B — Self-Hosted (Docker)
+
+Run the entire stack — database, backup storage, web app, and HTTPS — on
+your own machine, accessible to devices on your local network only.
+
+**Prerequisites**
+- **Docker** and **Docker Compose**
+- **OpenSSL** (for generating the local HTTPS certificate; included by default on macOS/Linux, available via Git Bash or WSL on Windows)
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/kavineksith/INSOPHINIA-POS-Application.git
+cd INSOPHINIA-POS-Application
+
+# 2. Configure environment
+cp .env.docker.example .env
+# Edit .env: set your LAN IP, database password, MinIO credentials, and secrets
+
+# 3. Generate the local HTTPS certificate (use your machine's LAN IP)
+chmod +x docker/nginx/generate-cert.sh docker/scripts/*.sh
+./docker/nginx/generate-cert.sh 192.168.1.50
+
+# 4. Build and start the stack
+docker compose up -d --build
+```
+
+Open `https://<your-LAN-IP>` from any device on the same network. See
+[`README-DOCKER.md`](README-DOCKER.md) for full details on the container
+architecture, backups, and troubleshooting.
+
 ### Default Login
-On first run, create a master admin account through the setup wizard.
+On first run (either option), create a master admin account through the setup wizard.
 
 ---
 
@@ -100,10 +145,11 @@ On first run, create a master admin account through the setup wizard.
 | 📧 **Email** | Email receipts to customers (SMTP) |
 | 📸 **Camera Scanner** | Built-in camera barcode/QR scanner for mobile devices |
 | 🔐 **Security** | 2FA, session management, IP pinning, deadman switch |
-| 💾 **Backups** | Encrypted cloud backups utilizing AWS S3 |
+| 💾 **Backups** | Encrypted backups to any S3-compatible storage (AWS S3 or self-hosted MinIO) |
 | 🎯 **Promotions** | Manage promotional discounts and offers |
 | 🔌 **Hardware** | Direct Web Serial API access for scanners and printers |
 | 🔄 **CI/CD** | Automated testing via GitHub Actions and deployment to Vercel |
+| 🐳 **Self-Hosting** | One-command Docker stack: Postgres + MinIO + app + local HTTPS |
 
 ---
 
@@ -112,8 +158,9 @@ On first run, create a master admin account through the setup wizard.
 - **Framework**: [Next.js 16](https://nextjs.org) (App Router)
 - **Language**: [TypeScript](https://typescriptlang.org)
 - **Styling**: [Tailwind CSS 4](https://tailwindcss.com)
-- **Database**: [PostgreSQL](https://postgresql.org) via **Supabase** & [Prisma](https://prisma.io)
-- **Cloud Backups**: **AWS S3 Bucket**
+- **Database**: [PostgreSQL](https://postgresql.org) via [Prisma](https://prisma.io) — **Supabase** (managed) or a self-hosted **Docker Postgres container**
+- **Backup Storage**: S3-compatible — **AWS S3 / Supabase S3** (managed) or a self-hosted **MinIO container**
+- **Self-Hosted Infra**: **Docker Compose**, **Nginx** (HTTPS reverse proxy)
 - **PWA**: [Serwist](https://serwist.pages.dev) for offline caching
 - **CI/CD**: **GitHub Actions**
 - **Icons**: [FontAwesome](https://fontawesome.com)
@@ -124,17 +171,26 @@ On first run, create a master admin account through the setup wizard.
 
 ## ⚙️ Environment Variables
 
-See [`.env.example`](.env.example) for the complete list of configuration options including:
-- Supabase PostgreSQL connection strings
-- AWS S3 backup bucket credentials
-- JWT and encryption keys
-- SMTP email configuration
-- Rate limiting settings
-- Vercel Cron secrets for automated backups
+Two templates are provided depending on your deployment path:
+
+- [`.env.example`](.env.example) — for **managed cloud** deployment:
+  - Supabase PostgreSQL connection strings
+  - AWS S3 backup bucket credentials
+  - JWT and encryption keys
+  - SMTP email configuration
+  - Rate limiting settings
+  - Vercel Cron secrets for automated backups
+- [`.env.docker.example`](.env.docker.example) — for **self-hosted Docker** deployment:
+  - Postgres container credentials
+  - MinIO container credentials and bucket name
+  - LAN IP binding for the HTTPS reverse proxy
+  - Same JWT, encryption, SMTP, and rate limiting options as above
 
 ---
 
-## 🚢 Deployment (Vercel)
+## 🚢 Deployment
+
+### Managed Cloud (Vercel)
 
 INSOPHINIA is highly optimized for deployment on Vercel. With a free Vercel account and a Supabase database, small businesses can run this POS with zero monthly software costs.
 
@@ -146,12 +202,30 @@ npm run build
 
 Add all environment variables from `.env.example` to your Vercel project settings, hook up your repository, and Vercel will handle the rest!
 
+### Self-Hosted (Docker)
+
+For businesses that want to keep all data on their own hardware — no
+recurring cloud costs, no external dependency for day-to-day operation:
+
+```bash
+cp .env.docker.example .env
+# edit .env with your values
+./docker/nginx/generate-cert.sh <your-lan-ip>
+docker compose up -d --build
+```
+
+This starts four containers: PostgreSQL, MinIO (S3-compatible backup
+storage), the app itself, and an Nginx reverse proxy that serves HTTPS to
+devices on your local network only. Full details, network architecture,
+and troubleshooting are in [`README-DOCKER.md`](README-DOCKER.md).
+
 ---
 
 ## 📖 Documentation
 
 - [**System Documentation**](SYSTEM_DOCUMENTATION.md) — Technical architecture, CI/CD workflows, database schema, security model.
 - [**User Guide**](USER_GUIDE.md) — Step-by-step usage instructions for all user roles.
+- [**Docker Deployment Guide**](README-DOCKER.md) — Self-hosted stack setup, network architecture, backups, and troubleshooting.
 
 ---
 

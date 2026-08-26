@@ -73,12 +73,14 @@
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "jest-mock-extended": "^4.0.1",
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.26",
     "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2"
   },
   "overrides": {
     "uuid": "^14.0.0",
-    "postcss": "^8.5.10"
+    "postcss": "^8.5.26",
+    "js-yaml": "^5.4.0",
+    "@babel/core": "^7.29.6"
   }
 }
